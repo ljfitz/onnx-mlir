@@ -35,10 +35,19 @@
 
 #define DEBUG_TYPE "compiler_utils"
 
+#include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
+using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
-const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
+using namespace mlir::torch;
+using namespace mlir::torch::Torch;
+
+
+llvm::cl::OptionCategory OnnxMlirOptions(
+    "ONNX-MLIR Options", "These are frontend options.");
 
 namespace {
 
@@ -615,11 +624,95 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::torch::Torch::TorchDialect>();
+  context.getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
 }
 
-// Return 0 on success, error number on failure.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
+void addONNXToMLIRPasses(mlir::PassManager &pm) {
+  // This is a transition from previous static passes to full dynamic passes
+  // Static passes are kept and the dynamic pass is added as IF-THEN
+  // with the static iteration.
+  // The reasons are
+  // 1. The debug flag, --print-ir-after/befor-all, can display IR for each
+  //    static pass, but the dynamic pipeline will be viewed as one. MLIR
+  //    may have solution that I am not aware of yet.
+  // 2. Easy to compare two approaches.
+  // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
+  // this function.
+
+  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+  //pm.addNestedPass<FuncOp>(mlir::createONNXSampleOpTransformPass());
+  //pm.addNestedPass<FuncOp>(mlir::createONNXLeakyReluOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenLeakyReluOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenMaxPool2dOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
+
+  pm.addPass(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createShapeInferencePass());
+  // There are more opportunities for const propagation once all tensors have
+  // inferred shapes.
+  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+
+  if (onnxOpTransformThreshold > 0) {
+    // Dynamic iterate in ONNXOpTransformPass
+    pm.addPass(mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
+  } else {
+    // Statically add extra passes
+    for (int i = 0; i < repeatOnnxTransform; i++) {
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createShapeInferencePass());
+      pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    }
+  }
+
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
+}
+
+void addONNXToKrnlPasses(mlir::PassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
+  pm.addPass(mlir::createLowerToKrnlPass(/*emitDealloc=*/false));
+  // An additional pass of canonicalization is helpful because lowering
+  // from ONNX dialect to Standard dialect exposes additional canonicalization
+  // opportunities.
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
+void addKrnlToAffinePasses(mlir::PassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createConvertKrnlToAffinePass());
+  // Fuse loops in Affine dialect.
+  //  pm.addPass(mlir::createLoopFusionPass());
+}
+
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
+  pm.addPass(mlir::createLowerAffinePass());
+
+  // Use MLIR buffer deallocation pass to emit buffer deallocs.
+  // Currently this has to be done *after* lowering the affine dialect because
+  // operations in that dialect do not conform to the requirements explained in
+  // https://mlir.llvm.org/docs/BufferDeallocationInternals.
+  pm.addNestedPass<FuncOp>(mlir::bufferization::createBufferDeallocationPass());
+  if (enableMemoryBundling) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  }
+
+  pm.addPass(mlir::createLowerToCFGPass());
+  pm.addPass(mlir::createConvertKrnlToLLVMPass());
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
+void processInputFile(string inputFilename, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   std::string extension =

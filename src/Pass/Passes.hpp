@@ -30,7 +30,14 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
 
-std::unique_ptr<mlir::Pass> createShapeInferencePass(
+/// pass for ONNX to Leaky relu
+std::unique_ptr<Pass> createONNXToAtenLeakyReluOpTransformPass();
+std::unique_ptr<Pass> createONNXToAtenMaxPool2dOpTransformPass();
+
+/// Pass for ONNX to Aten conv2d operation
+std::unique_ptr<Pass> createONNXToAtenConv2DOpTransformPass();
+
+std::unique_ptr<Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
