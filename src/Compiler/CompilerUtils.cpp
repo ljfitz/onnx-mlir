@@ -38,6 +38,9 @@
 #include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 
+#include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
