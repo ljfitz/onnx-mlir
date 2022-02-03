@@ -19,39 +19,6 @@ void initOMPasses(int optLevel) {
   // All passes implemented within onnx-mlir should register within this
   // function to make themselves available as a command-line option.
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createONNXOpTransformPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createDecomposeONNXToONNXPass();
-  });
-
-  
-  /*
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXSampleOpTransformPass();
-  }); 
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXLeakyReluOpTransformPass();
-  }); 
-  */
-  
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXToAtenLeakyReluOpTransformPass();
-  }); 
-
-  
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXToAtenMaxPool2dOpTransformPass();
-  }); 
-  
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXToAtenConv2DOpTransformPass();
-  }); 
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createShapeInferencePass();
   });
 
@@ -61,10 +28,10 @@ void initOMPasses(int optLevel) {
     return mlir::createONNXSampleOpTransformPass();
   }); 
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXLeakyReluOpTransformPass();
-  }); 
   */
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantOpTransformPass();
+  }); 
   
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createONNXToAtenLeakyReluOpTransformPass();
@@ -124,8 +91,8 @@ void initOMPasses(int optLevel) {
     return krnl::createConvertSeqToMemrefPass();
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createLowerKrnlRegionPass();
+  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createLowerToKrnlPass(optLevel);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
