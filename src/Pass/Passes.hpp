@@ -68,8 +68,12 @@ std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling);
 
-/// Add pass for lowering to Mhlo IR.
-std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+/// Add pass for lowering to Torch IR.
+std::unique_ptr<Pass> createLowerToTorchPass();
+std::unique_ptr<Pass> createLowerToTorchPass(int optLevel);
+
+/// Pass for lowering frontend dialects to Krnl IR dialect.
+std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();

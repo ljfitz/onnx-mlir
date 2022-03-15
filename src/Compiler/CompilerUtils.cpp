@@ -711,9 +711,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  pm.addPass(mlir::createShapeInferencePass());
+  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+
+  // pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createShapeInferencePass());
+  // pm.addPass(mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
@@ -725,19 +727,25 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
-      pm.addPass(mlir::createShapeInferencePass());
+      // pm.addPass(mlir::createShapeInferencePass());
       pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
     }
   }
 
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenLeakyReluOpTransformPass());
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenMaxPool2dOpTransformPass());
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantOpTransformPass());
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantPadNdOpTransformPass());
+  // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenLeakyReluOpTransformPass());
+  // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenMaxPool2dOpTransformPass());
+  // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
+  // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantOpTransformPass());
+  // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantPadNdOpTransformPass());
   
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+}
+
+void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<ModuleOp>(mlir::createInstrumentONNXPass());
+  pm.addPass(mlir::createLowerToTorchPass(optLevel));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
@@ -1034,7 +1042,13 @@ void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
-  return CompilerSuccess;
+
+  /// torch pass has been added
+  ///if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+     addONNXToTorchPasses(pm, OptimizationLevel);
+
+  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
+    addKrnlToLLVMPasses(pm);
 }
 
 void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,

@@ -47,9 +47,11 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 
-// Returns 0 on success, OnnxMlirCompilerErrorCodes on failure.
-int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string filenameWithExt, int64_t largeElementLimit = -1);
+void addONNXToMLIRPasses(mlir::PassManager &pm);
+void addONNXToKrnlPasses(mlir::PassManager &pm);
+void addONNXToTorchPasses(mlir::PassManager &pm);
+void addKrnlToAffinePasses(mlir::PassManager &pm);
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
 // Process the input model given by its module and context into an output file
 // according to the emission target type. Name of the output file can be
