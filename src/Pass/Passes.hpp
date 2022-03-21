@@ -67,6 +67,7 @@ std::unique_ptr<Pass> createLowerToKrnlPass();
 std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling);
+std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc);
 
 /// Add pass for lowering to Torch IR.
 std::unique_ptr<Pass> createLowerToTorchPass();
