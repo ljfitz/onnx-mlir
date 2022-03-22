@@ -136,9 +136,8 @@ int main(int argc, char **argv) {
   onnx_mlir::initOMPasses(OptimizationLevel);
   onnx_mlir::initMLIRPasses();
 
-  // Initialize passes for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    accel->initPasses(OptimizationLevel);
+  initOMPasses(0);
+  initMLIRPasses();
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
