@@ -1059,9 +1059,9 @@ void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   }
 
   /// torch pass has been added
-  /// if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-  addONNXToTorchPasses(pm, OptimizationLevel);
-
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+    addONNXToTorchPasses(pm, OptimizationLevel);
+ 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 }
