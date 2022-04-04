@@ -12,9 +12,8 @@ add_onnx_mlir_library(Diagnostic
   
 add_onnx_mlir_library(OMSupport
   KrnlSupport.cpp
-
-  INCLUDE_DIRS PUBLIC
-  ${ONNX_MLIR_SRC_ROOT}/include
+  TorchSupport.cpp
+  OMOptions.cpp
 
   LINK_LIBS PUBLIC
   OMKrnlOps

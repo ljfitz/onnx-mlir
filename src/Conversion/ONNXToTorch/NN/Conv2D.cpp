@@ -34,6 +34,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
+#include "src/Support/TorchSupport.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
@@ -53,6 +54,58 @@
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
+/*
+std::vector<Value> setUpSymmetricPadding(ConversionPatternRewriter &rewriter,
+                                         Location &loc, ::mlir::ArrayAttr &pads,
+Type ty) { dim_pads dimArray[pads.size()]; std::vector<Value> translatepadsList;
+
+  bool is_symmetric = true;
+  for (unsigned int i = 0; i < pads.size(); i += 2) {
+    if (pads[i] != pads[i+1]) {
+      is_symmetric = false;
+      break;
+    }
+  }
+
+  if (is_symmetric) {
+    for (unsigned int i = 0; i < pads.size(); i += 2) {
+      auto pad_value =
+(pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue(); auto f0 =
+IntegerAttr::get(ty, pad_value); Value p0v = rewriter.create<ConstantIntOp>(loc,
+f0); translatepadsList.push_back(p0v);
+    }
+  } else {
+    int j = 0;
+    for (unsigned int i = 0; i < pads.size(); i++) {
+      dimArray[j].dim_start =
+        (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+      i++;
+      dimArray[j].dim_end =
+        (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+      j++;
+    }
+
+    // read the onnx pad values from array(dim_start values)
+    int k = 0;
+    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+      auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
+      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+      translatepadsList.push_back(p0v);
+      k++;
+    }
+
+    // read the onnx pad values from array(dim_end values)
+    k = 0;
+    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+      auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
+      Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+      translatepadsList.push_back(p1v);
+      k++;
+    }
+  }
+  return translatepadsList;
+}
+*/
 
 struct ONNXConvOpToTorchLowering : public ConversionPattern {
   ONNXConvOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -88,14 +141,46 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     auto strides_AR = strides.getValue();
     ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
 
-    std::vector<Value> translatepadsList =
-        createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
-    std::vector<Value> dilationonnxList =
-        createArrayAttribute(dilations, group.getType(), loc, rewriter);
-    std::vector<Value> kernalshapeonnxList =
-        createArrayAttribute(kernal_shape, group.getType(), loc, rewriter);
-    std::vector<Value> stridesonnxList =
-        createArrayAttribute(strides, group.getType(), loc, rewriter);
+    // Reading the ONNX side pads values and store in the array.
+    std::vector<Value> translatepadsList;
+
+    if (pads) {
+      auto translatepadsAttrList = setUpSymmetricPadding(pads, group.getType());
+      for (auto padAttr : translatepadsAttrList) {
+        Value p1v = rewriter.create<ConstantIntOp>(loc, padAttr);
+        translatepadsList.push_back(p1v);
+      }
+    }
+
+    std::vector<Value> dilationonnxList;
+    std::vector<Value> kernalshapeonnxList;
+    std::vector<Value> stridesonnxList;
+
+    // reading the dilation values.
+    if (dilations) {
+      for (unsigned int i = 0; i < dilations.size(); i++) {
+        auto f1 = IntegerAttr::get(group.getType(),
+            (dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        dilationonnxList.push_back(p1v);
+      }
+    } else {
+      auto c1 = IntegerAttr::get(group.getType(), 1);
+      Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
+      dilationonnxList = {p1v, p1v};
+    }
+
+    // reading the kernal_shape values.
+    if (kernal_shape) {
+      for (unsigned int i = 0; i < kernal_shape.size(); i++) {
+        auto f1 = IntegerAttr::get(
+            group.getType(), (kernal_shape[i].dyn_cast<IntegerAttr>())
+                                 .getValue()
+                                 .getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        kernalshapeonnxList.push_back(p1v);
+      }
+    }
 
     // If group Value is null, assigning default value.
     auto zero = 0;

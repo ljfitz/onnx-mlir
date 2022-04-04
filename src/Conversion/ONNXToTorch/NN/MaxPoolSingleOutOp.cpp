@@ -36,6 +36,7 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
+#include "src/Support/TorchSupport.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
@@ -74,10 +75,10 @@ using namespace mlir::torch::Torch;
  *case are (N x C x H x W), where N is the batch size, C is the number of
  *channels, and H and W are the height and the width of the data. For non image
  *case, the dimensions are in the form of (N x C x D1 x D2 ... Dn), where N is
- *		the batch size. Optionally, if dimension denotation is in effect,
- *the operation expects the input data tensor to arrive with the dimension
- *denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE ...].
- * Output   :
+ *		the batch size. Optionally, if dimension denotation is in
+ *effect, the operation expects the input data tensor to arrive with the
+ *dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE
+ *...]. Output   :
  *
  * Y		tensor of 16-bit/32-bit/64-bit float values or memref of any
  *type values or none type Output data tensor from average or max pooling across
@@ -86,8 +87,8 @@ using namespace mlir::torch::Torch;
  *
  * Attributes
  * auto_pad 		string attribute DEPRECATED
- * ceiling_mode 	int (default is 0), Whether to use ceil or floor (default)
- *to compute the output shape.
+ * ceiling_mode 	int (default is 0), Whether to use ceil or floor
+ *(default) to compute the output shape.
  *
  * dilations 		list of ints, 64-bit integer array attribute
  * 			Dilation value along each spatial axis of filter. If not
@@ -98,8 +99,8 @@ using namespace mlir::torch::Torch;
  *
  * pads 		list of ints, 64-bit integer array attribute
  * storage_order        int (default is 0)
- *			The storage order of the tensor. 0 is row major, and 1 is
- *column major. strides 		list of ints 64-bit integer array
+ *			The storage order of the tensor. 0 is row major, and 1
+ *is column major. strides 		list of ints 64-bit integer array
  *attribute Stride along each spatial axis
  *
  * Validation
@@ -115,6 +116,12 @@ using namespace mlir::torch::Torch;
  * The atribute values have been used in the below code are to be corrected.
  *
  */
+
+/*
+typedef struct dim_pads {
+  int dim_start;
+  int dim_end;
+  } dim_pads; */
 
 struct ONNXMaxPoolSingleOutOpToTorchLowering : public ConversionPattern {
 public:
@@ -146,23 +153,80 @@ public:
     auto ty = IntegerType::get(op1.getContext(), 64);
 
     // Reading the ONNX side pads values and store in the array.
-    std::vector<Value> translatepadsList =
-        createPadsArrayAttribute(pads, ty, loc, rewriter);
-    std::vector<Value> dilationonnxList =
-        createArrayAttribute(dilations, ty, loc, rewriter);
-    std::vector<Value> kernalshapeonnxList =
-        createArrayAttribute(kernal_shape, ty, loc, rewriter);
-    std::vector<Value> stridesonnxList =
-        createArrayAttribute(strides, ty, loc, rewriter);
+    std::vector<Value> translatepadsList;
+    auto ty = IntegerType::get(op1.getContext(), 64);
+    auto by = IntegerType::get(op1.getContext(), 1);
+
+    if (pads) {
+      auto translatepadsAttrList = setUpSymmetricPadding(pads, ty);
+      for (auto padAttr : translatepadsAttrList) {
+        Value p1v = rewriter.create<ConstantIntOp>(loc, padAttr);
+        translatepadsList.push_back(p1v);
+      }
+    }
+
+    std::vector<Value> dilationonnxList;
+    std::vector<Value> kernalshapeonnxList;
+    std::vector<Value> stridesonnxList;
+
+    // reading the dilation values.
+    if (dilations) {
+      for (unsigned int i = 0; i < dilations.size(); i++) {
+        auto f1 = IntegerAttr::get(ty,
+            (dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        dilationonnxList.push_back(p1v);
+      }
+    } else {
+      auto c1 = IntegerAttr::get(ty, 1);
+      Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
+      dilationonnxList = {p1v, p1v};
+    }
+
+    // reading the kernal_shape values.
+    if (kernal_shape) {
+      for (unsigned int i = 0; i < kernal_shape.size(); i++) {
+        auto f1 = IntegerAttr::get(ty, (kernal_shape[i].dyn_cast<IntegerAttr>())
+                                           .getValue()
+                                           .getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        kernalshapeonnxList.push_back(p1v);
+      }
+    }
+
+    // reading the strides values.
+    if (strides) {
+      for (unsigned int i = 0; i < strides.size(); i++) {
+        auto f1 = IntegerAttr::get(
+            ty, (strides[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        stridesonnxList.push_back(p1v);
+      }
+    }
+
+    auto one = 1;
+    auto two = 2;
+    auto three = 3;
+    auto zero = 0;
 
     auto zero = 0;
     auto f00 = IntegerAttr::get(ty, zero);
+    auto f22 = IntegerAttr::get(ty, two);
+    auto b0 = IntegerAttr::get(by, false);
+
+    auto f3 = f33;
     auto f0 = f00;
-    Value f0v = rewriter.create<ConstantIntOp>(loc, f0);
+    auto f2 = f22;
+
+    Value f3v = rewriter.create<ConstantIntOp>(loc, f3);
+    // Value f0v = rewriter.create<ConstantBoolOp>(loc, f0);
+    Value f22v = rewriter.create<ConstantIntOp>(loc, f2);
+    Value b0v = rewriter.create<ConstantBoolOp>(loc, b0);
 
     Value ceiling_mode_val;
     if (ceiling_mode_attr)
-      ceiling_mode_val = rewriter.create<ConstantIntOp>(loc, ceiling_mode_attr);
+      ceiling_mode_val =
+          rewriter.create<ConstantBoolOp>(loc, ceiling_mode_attr);
     else
       ceiling_mode_val = b0v;
 
