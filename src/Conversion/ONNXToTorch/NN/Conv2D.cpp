@@ -141,8 +141,14 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     auto strides_AR = strides.getValue();
     ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
 
-    // Reading the ONNX side pads values and store in the array.
-    std::vector<Value> translatepadsList;
+    std::vector<Value> translatepadsList =
+        createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
+    std::vector<Value> dilationonnxList =
+        createArrayAttribute(dilations, group.getType(), loc, rewriter, 1);
+    std::vector<Value> kernalshapeonnxList =
+        createArrayAttribute(kernal_shape, group.getType(), loc, rewriter);
+    std::vector<Value> stridesonnxList =
+        createArrayAttribute(strides, group.getType(), loc, rewriter);
 
     if (pads) {
       auto translatepadsAttrList = setUpSymmetricPadding(pads, group.getType());
