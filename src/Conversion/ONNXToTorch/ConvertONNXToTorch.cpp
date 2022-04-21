@@ -40,8 +40,11 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
       patterns, typeConverter, ctx);
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchFlattenOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchAddOpPattern (patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchSoftmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConcatOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchAbsOpPattern(patterns, typeConverter, ctx);
+  // populateLoweringONNXToTorchSqrtOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
 }
 
 //===-----------------------------------------------------------------===//

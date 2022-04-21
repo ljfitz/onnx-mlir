@@ -141,3 +141,12 @@ void populateLoweringONNXToTorchFlattenOpPattern (
 
 void populateLoweringONNXToTorchAddOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchAbsOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+// void populateLoweringONNXToTorchSqrtOpPattern(
+//     RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
+
+void populateLoweringONNXToTorchElementwiseOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
