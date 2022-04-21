@@ -11,8 +11,6 @@
 #include <iostream>
 #include <set>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -31,7 +29,6 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 

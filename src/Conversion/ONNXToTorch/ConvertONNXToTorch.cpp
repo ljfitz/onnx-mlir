@@ -13,8 +13,7 @@
 //
 //===------------------------------------------------------------------===//
 
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "llvm/Support/CommandLine.h"
 
@@ -113,6 +112,8 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets 
   // for this lowering.
   target.addLegalDialect<Torch::TorchDialect>();
+  target
+      .addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
 
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
@@ -142,10 +143,10 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<Pass> mlir::createLowerToTorchPass() {
+std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass() {
   return std::make_unique<FrontendToTorchLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createLowerToTorchPass(int optLevel) {
+std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass(int optLevel) {
   return std::make_unique<FrontendToTorchLoweringPass>(optLevel);
 }

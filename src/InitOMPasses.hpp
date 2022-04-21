@@ -23,7 +23,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createDecomposeONNXToONNXPass();
+    return createDecomposeONNXToONNXPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -89,15 +89,15 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToKrnlPass(optLevel > 0);
+    return createLowerToKrnlPass(optLevel > 0);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToTorchPass();
+    return createLowerToTorchPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createElideConstGlobalValuePass();
+    return createElideConstGlobalValuePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
