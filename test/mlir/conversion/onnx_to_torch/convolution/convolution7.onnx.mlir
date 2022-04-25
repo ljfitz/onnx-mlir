@@ -1,0 +1,17 @@
+//RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
+module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128", llvm.target_triple = "x86_64-unknown-linux-gnu"}  {
+  func @main_graph(%arg0: tensor<1x1x16x16xf32>) -> tensor<1x16x8x8xf32> attributes {input_names = ["input"], output_names = ["5"]} {
+    %0 = "onnx.Constant"() {value = dense<"0x96E3723D262E123ED0F10EBEE26196BEFB8BA9BDCA4E853EB6DA60BDB010E3BD861D35BE40327B3DB389883E4343A4BE6B316CBD1E6072BE2B4275BDA2929F3EF8C77B3ED02472BED6E71A3EB6FCA5BEA809A8BE9608F93CA7889D3EA0339EBEDBA9BE3D80DD713E2E849FBE8B4FA1BDFE69813E108423BECBDB823D1892333E7EC7013E6B3F453E80CB233E90FC85BD8352933E16EFFABC5BCB8F3EEE4A59BE20F9193D083D4BBE4038893C4691083E5B40A23DE054263D3B185CBED3EB0ABE37B6A8BE18E386BEA056143E785E8B3EEBFEB03DABAA0C3E333275BE56E286BC5070843D2B276C3E4057143EC00A1BBEAB9CC7BB161F67BE4EAB383E4078CEBC58192C3E96477A3D4B8C6CBDD825683E4B3030BD26AD943EEA25803E7317483EB8593D3E66A381BE43223CBE90CB1FBED6F9AFBCD65AB93CE3E73A3ED24C9FBEE7988BBE96A261BD06ACA13D6B0E0DBE7E190BBE8B94773E63889ABE37B9A8BEF2DEA1BEEB9A06BDAB364FBE0ED907BE58A67EBE2A6EA5BEE8E2A6BE0EE7A43E536947BE562C38BC6E327BBE979BA33E238121BEAB711F3E70C8EC3D03E0483EAF88A9BE3B5441BE60B51ABE802089BCB6D951BE339D1D3E6673663EAE7E853E60D3D03D28D99B3E7BF192BD6B20E33D566008BC48F5863E3B8BDE3DB41CA33E3004863EAB58783E5A849F3E234307BE9F37913EE8235EBED85D843E6B32473D98EC5E3E4A3A883E6BB5973D6EB6253EB02D9EBDA8A2933E60B47EBD9BF990BD962E163D6BA3FB3D8F7987BEB6A5893DA0572E3D48EF6D3E7660ABBD96B0CC3D"> : tensor<16x1x3x3xf32>} : () -> tensor<16x1x3x3xf32>
+    %1 = "onnx.Constant"() {value = dense<[0.27660507, 0.216351315, 0.28384161, -0.140679881, -0.303971976, -0.256949961, -0.125121325, 0.125604242, 0.0245730486, 0.154731274, -0.100725971, 0.221986577, 0.306270778, 0.238272041, 0.287408531, -0.248993754]> : tensor<16xf32>} : () -> tensor<16xf32>
+//CHECK: [[STRIDE:%.]] = torch.prim.ListConstruct %int1{{_*[0-9]*}}, %int1{{_*[0-9]*}} :
+    //CHECK: [[DILATION:%.]] = torch.prim.ListConstruct %int1{{_*[0-9]*}}, %int1{{_*[0-9]*}} :
+    //CHECK: [[PAD:%.]] = torch.prim.ListConstruct %int1, %int1{{_*[0-9]*}} :
+    %2 = "onnx.Conv"(%arg0, %0, %1) {dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "Conv_0", pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x1x16x16xf32>, tensor<16x1x3x3xf32>, tensor<16xf32>) -> tensor<1x16x16x16xf32>
+
+//CHECK: torch.aten.conv2d %arg0, %{{[0-9]}}, %{{[0-9]}}, [[STRIDE]], [[PAD]], [[DILATION]], %int1{{_*[0-9]*}} : !torch.vtensor<[1,1,16,16],f32>, !torch.vtensor<[16,1,3,3],f32>, !torch.vtensor<[16],f32>, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.int -> !torch.vtensor<[1,16,16,16],f32>
+    %3 = "onnx.MaxPoolSingleOut"(%2) {kernel_shape = [2, 2], onnx_node_name = "MaxPool_1", pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x16x16x16xf32>) -> tensor<1x16x8x8xf32>
+    %4 = "onnx.LeakyRelu"(%3) {alpha = 0.00999999977 : f32, onnx_node_name = "LeakyRelu_2"} : (tensor<1x16x8x8xf32>) -> tensor<1x16x8x8xf32>
+    return %4 : tensor<1x16x8x8xf32>
+  }
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [1 , 1 , 16 , 16] , \22name\22 : \22input\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [1 , 16 , 8 , 8] , \22name\22 : \225\22 }\0A\0A]\00"} : () -> ()
+}
