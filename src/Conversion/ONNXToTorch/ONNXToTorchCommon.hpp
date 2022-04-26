@@ -141,6 +141,3 @@ void populateLoweringONNXToTorchSoftmaxOpPattern(
 
 void populateLoweringONNXToTorchConcatOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
-
-void populateLoweringONNXToTorchAbsOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
