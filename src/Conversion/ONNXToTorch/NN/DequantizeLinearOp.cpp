@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
 using namespace mlir;
@@ -23,29 +24,52 @@ struct ONNXDequantizeLinearOpToTorchLowering : public ConversionPattern {
       : ConversionPattern(
             typeConverter, mlir::ONNXDequantizeLinearOp::getOperationName(), 1, ctx) {}
 
-  Value subOp(ConversionPatternRewriter &rewriter, Location loc, TensorValue a, Value b) {
-    mlir::MLIRContext *context =  unaryOp.getContext();
+  Value subOp(
+    ConversionPatternRewriter &rewriter,
+    Location loc,
+    mlir::MLIRContext *context,
+    Torch::ValueTensorType resultType,
+    Value a,
+    Value b)
+    const
+  {
+    auto aType = toTorchType(context, a.getType());
+    auto bType = toTorchType(context, b.getType());
 
-    TensorType resultTensorType = unaryOp.getResult().getType().template dyn_cast<TensorType>();
+    auto aTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc, aType, a);
+    auto bTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc, bType, b);
 
-    auto operandType = Torch::ValueTensorType::get(context,
-                                           operandTensorType.getShape(),
-                                           operandTensorType.getElementType());
+    auto one = 1;
+    auto ty = IntegerType::get(context, 64);
+    auto oneAttr = IntegerAttr::get(ty, one);
+    Value alpha = rewriter.create<ConstantIntOp>(loc, oneAttr);
 
-    auto operandTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandType, operand);
+    return rewriter.create<AtenSubTensorOp>(loc, resultType, aTensor, bTensor, alpha);
+  }
 
-    auto resultType = Torch::ValueTensorType::get(context,
-                                                resultTensorType.getShape(),
-                                                resultTensorType.getElementType());
+  Value mulOp(
+    ConversionPatternRewriter &rewriter,
+    Location loc,
+    mlir::MLIRContext *context,
+    Torch::ValueTensorType resultType,
+    Value a,
+    Value b)
+    const
+  {
+    auto aType = toTorchType(context, a.getType());
+    auto bType = toTorchType(context, b.getType());
 
-    llvm::outs() << "Unary input is "
-                 << operandTensor
-                 << "\n";
+    auto aTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc, aType, a);
+    auto bTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc, bType, b);
 
-    Value result = rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
+    return rewriter.create<AtenMulTensorOp>(loc, resultType, aTensor, bTensor);
+  }
 
-    return result;
+  bool isShapeEqual(Value x, Value y) const {
+    auto xShape = x.getType().cast<ShapedType>().getShape();
+    auto yShape = y.getType().cast<ShapedType>().getShape();
+
+    return xShape == yShape;
   }
 
   // y = (x - x_zero_point) * x_scale
@@ -64,20 +88,18 @@ struct ONNXDequantizeLinearOpToTorchLowering : public ConversionPattern {
     auto xScale = dlOp.x_scale();
     auto xZeroPoint = dlOp.x_zero_point();
 
-    auto xType = x.getType().cast<TensorType>();
-    auto xScaleType = xScale.getType().cast<TensorType>();
-    auto xZeroPointType = xZeroPoint.getType().cast<TensorType>();
+    auto xRank = x.getType().cast<ShapedType>().getShape().size();
 
-    auto xShape = x.getType().cast<ShapedType>().getShape();
-    auto xScaleShape = xScale.getType().cast<ShapedType>().getShape();
-    auto xZeroPointShape = xZeroPoint.getType().cast<ShapedType>().getShape();
+    // assert((xRank <= axis && xRank >= axis) && "Expecting axis to be within bounds");
+    // assert(isShapeEqual(xScale, xZeroPoint) && "Expecting shape of x_scale nad x_zero_point to be equal");
 
-    int64_t xRank = xShape.size();
-
-    assert((xRank <= axis && xRank >= axis) && "Expecting axis to be within bounds");
-    assert((xScaleShape == xZeroPointShape) && "Expecting shape of x_scale nad x_zero_point to be equal");
-
-
+    auto resultType = toTorchType(context, dlOp.getResult().getType());
+    auto result = mulOp(rewriter, loc, context, resultType,
+                        subOp(rewriter, loc, context, resultType,
+                              x,
+                              xZeroPoint),
+                        xScale);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
     return success();
   }
