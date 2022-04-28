@@ -135,3 +135,6 @@ void populateLoweringONNXToTorchGemmOpPattern(
 
 void populateLoweringONNXToTorchElementwiseOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchDequantizeLinearOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
