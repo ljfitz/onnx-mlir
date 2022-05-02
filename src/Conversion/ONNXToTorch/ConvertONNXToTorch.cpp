@@ -38,7 +38,6 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchConcatOpPattern (patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchSoftmaxOpPattern (patterns, typeConverter, ctx);
 }
 
 //===-----------------------------------------------------------------===//

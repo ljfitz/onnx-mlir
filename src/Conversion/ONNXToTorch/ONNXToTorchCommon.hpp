@@ -136,8 +136,5 @@ void populateLoweringONNXToTorchReduceMeanOpPattern(
 void populateLoweringONNXToTorchGemmOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
-void populateLoweringONNXToTorchSoftmaxOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
-
 void populateLoweringONNXToTorchConcatOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
