@@ -130,3 +130,6 @@ void populateLoweringONNXToTorchGemmOpPattern(
 
 void populateLoweringONNXToTorchAddOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchBinaryOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);

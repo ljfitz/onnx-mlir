@@ -13,7 +13,8 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
-  NN/AddOp.cpp
+  NN/ElementwiseOp.cpp
+  NN/BinaryOps.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
