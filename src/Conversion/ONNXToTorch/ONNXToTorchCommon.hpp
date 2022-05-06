@@ -131,5 +131,8 @@ void populateLoweringONNXToTorchGemmOpPattern(
 void populateLoweringONNXToTorchSoftmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
-void populateLoweringONNXToTorchSqueezeOpPattern(
+void populateLoweringONNXToTorchElementwiseOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchConcatOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
