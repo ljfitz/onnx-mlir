@@ -146,28 +146,23 @@ public:
 
     Value kernalShapeList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
-        ValueRange{kernalShapeOnnxList});
+        ValueRange{kernalshapeonnxList});
 
-    TensorType xTensorType = x.getType().cast<TensorType>();
-    TensorType opTensorType =
-	    op->getResult(0).getType().cast<TensorType>();
+    TensorType x_tensor_type = x.getType().cast<TensorType>();
+    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
 
-    auto xType = Torch::ValueTensorType::get(
-        context, xTensorType.getShape(), xTensorType.getElementType());
-    auto resultType = Torch::ValueTensorType::get(op1.getContext(),
-        opTensorType.getShape(), opTensorType.getElementType());
-    auto xTorchTensor =
-	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-		loc, xType, x);
+    auto xTy = Torch::ValueTensorType::get(
+        context, x_tensor_type.getShape(), x_tensor_type.getElementType());
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+        op_tensor_type.getShape(), op_tensor_type.getElementType());
+    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, xTy, x);
 
-    Value result =
-	    rewriter.create<AtenMaxPool2dOp>(loc, resultType, xTorchTensor,
-	    kernalShapeList, stridesList, padsList, dilationList,
-	    ceilingModeVal);
-    llvm::outs() << "AtenMaxPool2dOp operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
+    Value atenmaxpool2d = rewriter.create<AtenMaxPool2dOp>(loc, resultTy, xtt,
+        kernalShapeList, stridesList, padsList, dilationList, ceiling_mode_val);
+
+    Value result = atenmaxpool2d;
+
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
     return success();

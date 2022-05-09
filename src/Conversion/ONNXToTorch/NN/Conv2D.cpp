@@ -148,15 +148,10 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
           	loc, bType, b);
     }
 
-    // emit the Conv2d operation in Torch side using "AtenConv2dOp".
-    Value result = rewriter.create<AtenConv2dOp>( loc, resultType,
-		 xTorchTensor, wTorchTensor, bTorchTensor, stridesList,
-		 padsList, dilationList, oneConstOp);
+    Value atenconv2d = rewriter.create<AtenConv2dOp>( loc, resultTy, 
+		 xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
 
-    llvm::outs() << "AtenConv2d operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
+    Value result = atenconv2d;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);

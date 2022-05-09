@@ -98,9 +98,7 @@ public:
     auto pads = op1.pads();                   // ONNX operands
     Value constValue = op1.constant_value(); // ONNX operands
 
-    // creating the DenseElementsAttr using pads values.
-    DenseElementsAttr denseAttr =
-	    getDenseElementAttributeFromONNXValue(pads);
+    DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<APInt> intValues;
@@ -138,10 +136,10 @@ public:
       }
     }
 
-    TensorType dataTensorType = data.getType().cast<TensorType>();
+    TensorType data_tensor_type = data.getType().cast<TensorType>();
 
-    auto dataType = Torch::ValueTensorType::get(context,
-        dataTensorType.getShape(), dataTensorType.getElementType());
+    auto dataTy = Torch::ValueTensorType::get(context,
+        data_tensor_type.getShape(), data_tensor_type.getElementType());
 
     auto dataTorchTensor =
 	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
@@ -160,25 +158,14 @@ public:
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatePadsList});
 
-    for (auto p : padsList1.elements()) {
-      llvm::outs() << " padding list element: "
-                   << "\n"
-                   << p << "\n"
-                   << "\n";
-    }
+    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+        op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    TensorType opTensorType =
-	    op->getResult(0).getType().cast<TensorType>();
-    auto resultType = Torch::ValueTensorType::get(op1.getContext(),
-        opTensorType.getShape(), opTensorType.getElementType());
+    Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(
+        loc, resultTy, dtt, padsList1, ctt);
 
-    Value result = rewriter.create<AtenConstantPadNdOp>(
-        loc, resultType, dataTorchTensor, padsList1, constTorchTensor);
-
-    llvm::outs() << "AtenConstantPadNdOp operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
+    Value result = atenconstantpad;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);

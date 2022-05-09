@@ -57,19 +57,10 @@ struct ONNXGlobalAveragePoolOpToTorchLowering : public ConversionPattern {
     ONNXGlobalAveragePoolOp globalAveragePool =
         llvm::dyn_cast_or_null<ONNXGlobalAveragePoolOp>(op);
 
-    assert(globalAveragePool && "Expecting op to have a strong type");
+    Value atenGlobAvgpool2d =
+        rewriter.create<AtenAdaptiveAvgPool2dOp>(loc, resultTy, xtt, f1v);
 
-    mlir::MLIRContext *context = globalAveragePool.getContext();
-    Location loc = globalAveragePool.getLoc();
-
-    auto x = globalAveragePool.X();
-    auto resultType =
-        toTorchType(context, globalAveragePool.getResult().getType());
-    auto xTensor = getTorchTensor(x, rewriter, context, loc);
-    auto rank = getRank(x, rewriter, context, loc);
-
-    Value result = rewriter.create<AtenAdaptiveAvgPool2dOp>(
-        loc, resultType, xTensor, rank);
+    Value result = atenGlobAvgpool2d;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);

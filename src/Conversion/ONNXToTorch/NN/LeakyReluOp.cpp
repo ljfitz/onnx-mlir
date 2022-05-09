@@ -94,7 +94,7 @@ public:
     Value result = rewriter.create<AtenLeakyReluOp>(loc, resultType,
 		    xTorchTensor, negSlopeConstFloat);
 
-    llvm::outs() << "ATENLEAKYRELU CREATED is " << result << "\n";
+    Value result = atenleakyrelu;
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
         op, op->getResult(0).getType(), result);

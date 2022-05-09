@@ -68,12 +68,10 @@ public:
     // 4) Create the torch tensor of shape as in 2,
     // 5) Create the torch op and replace it.
 
-    TensorType opTensorType =
-	    op->getResult(0).getType().cast<TensorType>();
-    ::mlir::Attribute valueAttrFinalized;
-    Type elementType;
-    if (opTensorType) {
-      // ElementType is integer type.
+    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+    ::mlir::Attribute value_attr_finalized;
+    Type element_type;
+    if (op_tensor_type) {
       if (auto integerType =
               opTensorType.getElementType().dyn_cast<IntegerType>()) {
         elementType = IntegerType::get(
@@ -123,15 +121,14 @@ public:
     auto resultType = Torch::ValueTensorType::get(
         op1.getContext(), opTensorType.getShape(), elementType);
 
-    Value result = rewriter.create<Torch::ValueTensorLiteralOp>(
-        loc, resultType, valueAttrFinalized);
+    Value literal = rewriter.create<Torch::ValueTensorLiteralOp>(
+        loc, resultTy, value_attr_finalized);
 
-    llvm::outs() << "ValueTensorLiteralOp operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
+    Value result = literal;
+
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
+
     return success();
   }
 };
