@@ -65,21 +65,21 @@ using namespace mlir::torch::TorchConversion;
  * padding is typically used just before/after convolution operation
  *
  * Operands :
- *   X  tensor of 16-bit/32-bit/64-bit float values or 
- *   memref of any type values Input data tensor from the previous operator; 
- *   dimensions for image case are (N x C x H x W), where N is the 
- *   batch size, C is the number of channels, and H and W are the 
- *   height and the width of the data. For non image case, the dimensions 
+ *   X  tensor of 16-bit/32-bit/64-bit float values or
+ *   memref of any type values Input data tensor from the previous operator;
+ *   dimensions for image case are (N x C x H x W), where N is the
+ *   batch size, C is the number of channels, and H and W are the
+ *   height and the width of the data. For non image case, the dimensions
  *   are in the form of (N x C x D1 x D2 ... Dn), where N is
  *		the batch size. Optionally, if dimension denotation is in
  *   effect, the operation expects the input data tensor to arrive with the
- *   dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, 
+ *   dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE,
  *   DATA_FEATURE ...]. Output   :
  *
  *   Y    tensor of 16-bit/32-bit/64-bit float values or memref of any
- *	  type values or none type Output data tensor from average or 
- *	  max pooling across the input tensor. Dimensions will vary based 
- *	  on various kernel, stride, and pad sizes. 
+ *	  type values or none type Output data tensor from average or
+ *	  max pooling across the input tensor. Dimensions will vary based
+ *	  on various kernel, stride, and pad sizes.
  *	  Floor value of the dimension is used differentiable
  *
  * Validation
@@ -130,7 +130,7 @@ public:
                  << const_value << "\n"
                  << "\n";
 
-    DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
+    DenseElementsAttr denseAttr = onnx_mlir::getDenseElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<APInt> intValues;
@@ -203,7 +203,7 @@ public:
         loc, dataTy, data);
 
     DenseElementsAttr valueAttr =
-        getDenseElementAttributeFromONNXValue(const_value);
+      onnx_mlir::getDenseElementAttributeFromONNXValue(const_value);
     auto valueIt = valueAttr.getValues<FloatAttr>().begin();
     auto valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
     auto fval = FloatAttr::get(mlir::FloatType::getF64(context), valueFloat);

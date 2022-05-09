@@ -32,7 +32,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -59,12 +58,17 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::desc("max iteration for op transform passes."),
       llvm::cl::init(3)};
 
+  Option<bool> onnxOpTransformReport{*this, "onnx-op-transform-report",
+      llvm::cl::desc("Report diagnostic info for op transform passes."),
+      llvm::cl::init(false)};
+
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold_) {
-    this->onnxOpTransformThreshold = threshold_;
+  ONNXOpTransformPass(int threshold, bool report) {
+    this->onnxOpTransformThreshold = threshold;
+    this->onnxOpTransformReport = report;
   }
 
   void runOnOperation() final;
@@ -159,6 +163,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold) {
-  return std::make_unique<ONNXOpTransformPass>(threshold);
+    int threshold, bool report) {
+  return std::make_unique<ONNXOpTransformPass>(threshold, report);
 }

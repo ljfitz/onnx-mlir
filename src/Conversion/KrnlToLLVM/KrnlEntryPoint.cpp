@@ -26,7 +26,6 @@
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -34,13 +33,14 @@ namespace krnl {
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
-  ArrayRef<bool> constantOutputs;
+  ArrayRef<bool> outputOMTensorOwnerships;
   bool singleEntryPoint;
 
   KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
-      ArrayRef<bool> constantOutputs, bool singleEntryPoint)
+      ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
-        constantOutputs(constantOutputs), singleEntryPoint(singleEntryPoint) {}
+        outputOMTensorOwnerships(outputOMTensorOwnerships),
+        singleEntryPoint(singleEntryPoint) {}
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
@@ -83,6 +83,29 @@ public:
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
+
+    // Emit code to initialize accelerators by calling OMInitCompatibleAccelX
+    // where X is the accelerator name.
+    // OMInitCompatibleAccelX's signature is `void (i64)`.
+    if (Attribute maccelAttr =
+            module->getAttrOfType<::mlir::Attribute>("onnx-mlir.accels")) {
+      assert(
+          maccelAttr.isa<ArrayAttr>() && "onnx-mlir.accels must be ArrayAttr");
+      ArrayAttr accels = maccelAttr.cast<ArrayAttr>();
+      for (uint64_t i = 0; i < accels.size(); ++i) {
+        assert(accels[i].isa<StringAttr>() && "Attribute must be StringAttr");
+        StringRef accelStr = accels.getValue()[i].cast<StringAttr>().getValue();
+        std::pair<StringRef, StringRef> NameAndVersion = accelStr.split('-');
+        uint64_t versionNumberInHex =
+            std::stoul(NameAndVersion.second.str(), nullptr, 16);
+        FlatSymbolRefAttr funcRef = getOrInsertOMInitCompatibleAccel(
+            rewriter, module, NameAndVersion.first);
+        LLVM::ConstantOp versionNumberVal = rewriter.create<LLVM::ConstantOp>(
+            loc, int64Ty, rewriter.getI64IntegerAttr(versionNumberInHex));
+        rewriter.create<LLVM::CallOp>(
+            loc, TypeRange(), funcRef, ArrayRef<Value>({versionNumberVal}));
+      }
+    }
 
     // Based on the static entry point type signature, unpack dynamic memory
     // refs to corresponding static memory refs.
@@ -206,8 +229,9 @@ public:
           loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       Value outOMTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {outMemRefRankVal});
-      // If output is a constant tensor, OMTensor does not own it.
-      bool outOwning = constantOutputs[i] ? false : true;
+      // If output is a constant tensor or a block argument, OMTensor does not
+      // own it.
+      bool outOwning = outputOMTensorOwnerships[i];
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
       krnl::fillOMTensorWithMemRef(
@@ -337,13 +361,47 @@ private:
     }
     return SymbolRefAttr::get(ctx, "malloc");
   }
+
+  FlatSymbolRefAttr getOrInsertOMInitAccel(
+      PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
+    std::string funcName = "OMInitAccel" + accelName.str();
+    // OMInitAccelX's signature is `void ()`.
+    auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
+    MLIRContext *ctx = rewriter.getContext();
+    if (!func) {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+      func = rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName,
+          LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx), {}));
+    }
+    return SymbolRefAttr::get(ctx, funcName);
+  }
+
+  FlatSymbolRefAttr getOrInsertOMInitCompatibleAccel(
+      PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
+    std::string funcName = "OMInitCompatibleAccel" + accelName.str();
+    // OMInitCompatibleAccelX's signature is `void (i64)`.
+    auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
+    MLIRContext *ctx = rewriter.getContext();
+    if (!func) {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+      LLVM::LLVMFunctionType funcType =
+          LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx),
+              ArrayRef<mlir::Type>({IntegerType::get(ctx, 64)}),
+              /*isVarArg=*/false);
+      func = rewriter.create<LLVM::LLVMFuncOp>(
+          module.getLoc(), funcName, funcType);
+    }
+    return SymbolRefAttr::get(ctx, funcName);
+  }
 };
 
 void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> constantOutputs, bool singleEntryPoint) {
+    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint) {
   patterns.insert<KrnlEntryPointOpLowering>(
-      typeConverter, ctx, constantOutputs, singleEntryPoint);
+      typeConverter, ctx, outputOMTensorOwnerships, singleEntryPoint);
 }
 
 } // namespace krnl

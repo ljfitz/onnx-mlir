@@ -24,6 +24,52 @@ add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
+add_onnx_mlir_library(CompilerOptions
+  CompilerOptions.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  ExternalUtil
+  AcceleratorsInc
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  )
+
+add_onnx_mlir_library(CompilerPasses
+  CompilerPasses.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  MLIRIR
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  ${OMLibs}
+  CompilerOptions
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+  )
+
+if (ONNX_MLIR_VENDOR)
+  set_source_files_properties(CompilerUtils.cpp
+    PROPERTIES COMPILE_DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR} \"")
+endif()
+
 add_onnx_mlir_library(CompilerUtils
   CompilerUtils.cpp
 
@@ -32,6 +78,7 @@ add_onnx_mlir_library(CompilerUtils
   DEPENDS
   ExternalUtil
   MLIRIR
+  OMVersion
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -41,9 +88,9 @@ add_onnx_mlir_library(CompilerUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRLLVMToLLVMIRTranslation
+  CompilerPasses
+  Accelerator
+  InitAccelerators
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE
@@ -71,5 +118,5 @@ add_onnx_mlir_library(OnnxMlirCompiler
   )
 
 if (NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(OnnxMlirCompiler PUBLIC OnnxMlirCompiler_EXPORTS)
+  target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()

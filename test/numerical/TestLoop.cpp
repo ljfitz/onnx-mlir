@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <limits>
 #include <random>
 #include <rapidcheck.h>
@@ -17,14 +16,15 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 std::string testLoopSimpleIR = R"(
 module {
@@ -124,10 +124,17 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   return omTensorAreTwoOmtsClose<int64_t>(vFinal.get(), vFinalRef.get());
 }
 
+} // namespace test
+} // namespace onnx_mlir
+
 int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
