@@ -94,10 +94,11 @@ public:
     mlir::MLIRContext *context = op1.getContext();
     Location loc = op1.getLoc();
 
-    Value data = op1.data();                  // ONNX operands
-    auto pads = op1.pads();                   // ONNX operands
+    Value data = op1.data();                 // ONNX operands
+    auto pads = op1.pads();                  // ONNX operands
     Value constValue = op1.constant_value(); // ONNX operands
 
+    // creating the DenseElementsAttr using pads values.
     DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
@@ -138,29 +139,35 @@ public:
 
     TensorType data_tensor_type = data.getType().cast<TensorType>();
 
-    auto dataTy = Torch::ValueTensorType::get(context,
-        data_tensor_type.getShape(), data_tensor_type.getElementType());
+    auto dataType = Torch::ValueTensorType::get(
+        context, dataTensorType.getShape(), dataTensorType.getElementType());
 
     auto dataTorchTensor =
-	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        	loc, dataType, data);
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, dataType, data);
 
     DenseElementsAttr valueAttr =
         getDenseElementAttributeFromONNXValue(constValue);
     auto valueIt = valueAttr.getValues<FloatAttr>().begin();
     auto valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
     auto floatVal =
-	    FloatAttr::get(mlir::FloatType::getF64(context), valueFloat);
-    auto constTorchTensor =
-	    rewriter.create<ConstantFloatOp>(loc, floatVal);
+        FloatAttr::get(mlir::FloatType::getF64(context), valueFloat);
+    auto constTorchTensor = rewriter.create<ConstantFloatOp>(loc, floatVal);
 
     auto padsList1 = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatePadsList});
 
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-        op_tensor_type.getShape(), op_tensor_type.getElementType());
+    for (auto p : padsList1.elements()) {
+      llvm::outs() << " padding list element: "
+                   << "\n"
+                   << p << "\n"
+                   << "\n";
+    }
+
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
+    auto resultType = Torch::ValueTensorType::get(op1.getContext(),
+        opTensorType.getShape(), opTensorType.getElementType());
 
     Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(
         loc, resultTy, dtt, padsList1, ctt);

@@ -47,9 +47,9 @@ using namespace mlir::torch::Torch;
  */
 class ONNXConstOpToTorchLowering : public ConversionPattern {
 public:
-  ONNXConstOpToTorchLowering(TypeConverter &typeConverter,
-	MLIRContext *ctx) : ConversionPattern( typeConverter,
-		mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+  ONNXConstOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -68,18 +68,19 @@ public:
     // 4) Create the torch tensor of shape as in 2,
     // 5) Create the torch op and replace it.
 
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
-    ::mlir::Attribute value_attr_finalized;
-    Type element_type;
-    if (op_tensor_type) {
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
+    ::mlir::Attribute valueAttrFinalized;
+    Type elementType;
+    if (opTensorType) {
+      // ElementType is integer type.
       if (auto integerType =
               opTensorType.getElementType().dyn_cast<IntegerType>()) {
         elementType = IntegerType::get(
             context, integerType.getWidth(), IntegerType::Signed);
-	// creating the Dense Attribute for the valueAttribute.
+        // creating the Dense Attribute for the valueAttribute.
         auto denseValueAttr =
             valueAttribute.dyn_cast<::mlir::DenseElementsAttr>();
-	// getting the shape  of the opTensorType
+        // getting the shape  of the opTensorType
         ShapedType denseValueType =
             RankedTensorType::get(opTensorType.getShape(), elementType);
         std::vector<APInt> intValues;
@@ -90,7 +91,7 @@ public:
         valueAttrFinalized = newDenseValueAttr;
       } else if (auto floatType = opTensorType.getElementType()
                                       .dyn_cast<::mlir::FloatType>()) {
-	// ElementType is float type
+        // ElementType is float type
         elementType = ::mlir::FloatType::getF32(context);
         auto denseValueAttr =
             valueAttribute.dyn_cast<::mlir::DenseElementsAttr>();
@@ -102,13 +103,11 @@ public:
         auto newDenseValueAttr =
             DenseElementsAttr::get(denseValueType, floatValues);
         valueAttrFinalized = newDenseValueAttr;
-      }
-      else {
+      } else {
         elementType = opTensorType.getElementType();
         valueAttrFinalized = valueAttribute;
       }
-    }
-    else {
+    } else {
       if (auto intType = valueAttribute.getType().cast<IntegerType>()) {
         elementType = ::mlir::IntegerType::get(
             context, intType.getWidth(), IntegerType::Signed);
