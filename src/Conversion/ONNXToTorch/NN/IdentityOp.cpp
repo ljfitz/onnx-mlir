@@ -67,8 +67,6 @@ struct ONNXToTorchIdentityOpLowering : public ConversionPattern {
         rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
             loc, operandType, operand);
 
-    llvm::outs() << "Input and output are " << operandTensor << "\n";
-
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
         op, operandType, operandTensor);
 
