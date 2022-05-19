@@ -31,13 +31,6 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
 
 /// pass for ONNX to Leaky relu
-std::unique_ptr<mlir::Pass> createONNXToAtenLeakyReluOpTransformPass();
-std::unique_ptr<mlir::Pass> createONNXToAtenMaxPool2dOpTransformPass();
-
-/// Pass for ONNX to Aten conv2d operation
-std::unique_ptr<mlir::Pass> createONNXToAtenConv2DOpTransformPass();
-
-/// pass for ONNX to Leaky relu
 std::unique_ptr<mlir::Pass> createONNXToAtenConstantOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenLeakyReluOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenMaxPool2dOpTransformPass();
@@ -77,9 +70,6 @@ std::unique_ptr<mlir::Pass> createLowerToTorchPass(int optLevel);
 std::unique_ptr<mlir::Pass> createONNXToAtenTypesTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenFinalizeTypesTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenModifyMainFunctionPass();
-
-/// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
 
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();
