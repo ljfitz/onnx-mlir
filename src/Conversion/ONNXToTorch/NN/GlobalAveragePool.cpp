@@ -38,21 +38,15 @@ using namespace mlir::torch::Torch;
  */
 struct ONNXGlobalAveragePoolOpToTorchLowering : public ConversionPattern {
 
-  Value getRank(Value x, ConversionPatternRewriter &rewriter,
-      mlir::MLIRContext *context, Location loc) const {
-    auto iType = IntegerType::get(context, 64);
-    auto inputShape = x.getType().cast<ShapedType>().getShape();
-    int64_t rank = inputShape.size();
-    return rewriter.create<ConstantIntOp>(loc, IntegerAttr::get(iType, rank));
-  }
-
-  ONNXGlobalAveragePoolOpToTorchLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXGlobalAveragePoolOpToTorchLowering(TypeConverter &typeConverter,
+                                         MLIRContext *ctx)
       : ConversionPattern(typeConverter,
-            mlir::ONNXGlobalAveragePoolOp::getOperationName(), 1, ctx) {}
+                          mlir::ONNXGlobalAveragePoolOp::getOperationName(), 1,
+                          ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
 
     ONNXGlobalAveragePoolOp globalAveragePool =
         llvm::dyn_cast_or_null<ONNXGlobalAveragePoolOp>(op);
@@ -60,7 +54,22 @@ struct ONNXGlobalAveragePoolOpToTorchLowering : public ConversionPattern {
     Value atenGlobAvgpool2d =
         rewriter.create<AtenAdaptiveAvgPool2dOp>(loc, resultTy, xtt, f1v);
 
-    Value result = atenGlobAvgpool2d;
+    mlir::MLIRContext *context = globalAveragePool.getContext();
+    Location loc = globalAveragePool.getLoc();
+
+    auto x = globalAveragePool.X();
+    auto resultType =
+        toTorchType(context, globalAveragePool.getResult().getType());
+    auto xTensor = getTorchTensor(x, rewriter, context, loc);
+
+    Value one = getIntValue(1, rewriter, context, loc);
+
+    Value hAndWDimensions = rewriter.create<PrimListConstructOp>(
+        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+        ValueRange{one, one});
+
+    Value result = rewriter.create<AtenAdaptiveAvgPool2dOp>(
+        loc, resultType, xTensor, hAndWDimensions);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
