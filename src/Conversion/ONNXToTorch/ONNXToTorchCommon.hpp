@@ -139,3 +139,6 @@ void populateLoweringONNXToTorchElementwiseOpPattern(
 
 void populateLoweringONNXToTorchConcatOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchArgmaxOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
