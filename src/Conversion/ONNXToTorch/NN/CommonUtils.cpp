@@ -98,6 +98,12 @@ Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
    return Torch::ValueTensorType::get(ctx, type.getShape(), type.getElementType());
 }
 
+Torch::ValueTensorType toSI64SignedType(mlir::MLIRContext *ctx, Type t) {
+   auto type = t.template dyn_cast<TensorType>();
+   auto elementType = IntegerType::get(type.getContext(), 64, IntegerType::Signed);
+   return Torch::ValueTensorType::get(ctx, type.getShape(), elementType);
+}
+
 /// Get Torch tensor from mlir::Value tensor
 ///
 /// \param operand: operand tensor
