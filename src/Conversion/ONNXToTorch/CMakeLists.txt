@@ -117,5 +117,4 @@ add_onnx_mlir_library(ONNXToAtenTypesTransform
   TorchMLIRInitAll
   TorchMLIRTorchConversionDialect
   TorchMLIRTorchPasses
-  MLIRMemRefTransforms
-  )
+)
