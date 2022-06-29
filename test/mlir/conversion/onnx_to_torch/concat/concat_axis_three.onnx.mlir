@@ -5,7 +5,7 @@ module attributes {}  {
     %1 = "onnx.Constant"() {value = dense<0.0> : tensor<12xf32>} : () -> tensor<12xf32>
 //CHECK: %[[INT3:.*]] = torch.constant.int 3    
     %2 = "onnx.Conv"(%arg0, %0, %1) {dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "Conv_0", pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x4x12x12xf32>, tensor<12x4x3x3xf32>, tensor<12xf32>) -> tensor<1x12x12x12xf32>
-//CHECK: torch.aten.cat %{{[^,]*}}, %[[INT3]] : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[1,12,12,24],f32>
+//CHECK: torch.aten.cat %{{[^,]*}}, %[[CONST2]] : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[1,12,12,24],f32>
     %3 = "onnx.Concat"(%2, %2) {axis = 3 : si64, onnx_node_name = "Concat_1"} : (tensor<1x12x12x12xf32>, tensor<1x12x12x12xf32>) -> tensor<1x12x12x24xf32>
     return %3 : tensor<1x12x12x24xf32>
   }
