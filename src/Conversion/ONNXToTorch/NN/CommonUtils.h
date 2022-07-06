@@ -22,7 +22,6 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -40,10 +39,6 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
-#ifdef _WIN32
-#include <io.h>
-#endif
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -57,6 +52,6 @@ Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t);
 mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
     mlir::MLIRContext *context, Location loc);
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
-                  mlir::MLIRContext *context, Location loc);
+    mlir::MLIRContext *context, Location loc);
 std::vector<int> toVector(mlir::ArrayAttr axesAttr);
-mlir::FloatAttr convertToIEEEDouble(mlir::Operation *op, llvm::APFloat &value);
+mlir::FloatAttr convertToIEEEDouble(mlir::FloatAttr attr);

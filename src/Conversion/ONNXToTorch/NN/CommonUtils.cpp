@@ -1,9 +1,13 @@
 #include "CommonUtils.h"
 
-std::vector<Value>
-createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
-                         ConversionPatternRewriter &rewriter) {
-  // Read ONNX side pads values and store inside a vector
+typedef struct dim_pads {
+  int dim_start;
+  int dim_end;
+} dim_pads;
+
+std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
+    Location loc, ConversionPatternRewriter &rewriter) {
+  // Reading the ONNX side pads values and store in the array.
   std::vector<Value> translatepadsList;
   if (!pads)  {
     for (unsigned i = 0; i < 2; i++) {
@@ -51,7 +55,7 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
   if (onnxArrayAttr) {
     for (unsigned int i = 0; i < onnxArrayAttr.size(); i++) {
       auto f1 = IntegerAttr::get(ty,
-        (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+          (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
       Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
       operandArrayValues.push_back(p1v);
     }
@@ -75,8 +79,9 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
 ///
 /// \returns Torch::ValueTensorType conversion from tensor
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
-   auto type = t.template dyn_cast<TensorType>();
-   return Torch::ValueTensorType::get(ctx, type.getShape(), type.getElementType());
+  auto type = t.template dyn_cast<TensorType>();
+  return Torch::ValueTensorType::get(
+      ctx, type.getShape(), type.getElementType());
 }
 
 /// Get Torch tensor from mlir::Value tensor
@@ -103,7 +108,7 @@ mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
 ///
 /// \returns mlir::Value of constant integer
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
-                  mlir::MLIRContext *context, Location loc) {
+    mlir::MLIRContext *context, Location loc) {
   auto iType = IntegerType::get(context, 64);
   auto iVal = IntegerAttr::get(iType, val);
   return rewriter.create<ConstantIntOp>(loc, iVal);
@@ -128,12 +133,12 @@ std::vector<int> toVector(mlir::ArrayAttr arr) {
 
 /// `torch-mlir` only supports 64-bit floats. Therefore, we need to
 /// consistently convert from 32-bit `onnx-mlir` floats.
-mlir::FloatAttr convertToIEEEDouble(mlir::Operation *op, llvm::APFloat &value) {
-    bool IsExact;
-    value.convert(llvm::APFloat::IEEEdouble(), llvm::APFloat::rmNearestTiesToEven,
-        &IsExact);
-    assert(!IsExact && "conversion to 64-bit float failed");
-    mlir::FloatAttr attr = FloatAttr::get(mlir::FloatType::getF64(op->getContext()),
-        value);
-    return attr;
+mlir::FloatAttr convertToIEEEDouble(mlir::FloatAttr attr) {
+  bool loosesInfo;
+  llvm::APFloat value = attr.getValue();
+  value.convert(llvm::APFloat::IEEEdouble(), llvm::APFloat::rmNearestTiesToEven,
+      &loosesInfo);
+  assert(!loosesInfo && "conversion to 64-bit float failed");
+  return FloatAttr::get(
+      mlir::FloatType::getF64(attr.getContext()), std::move(value));
 }
