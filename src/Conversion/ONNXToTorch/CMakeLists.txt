@@ -15,9 +15,10 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ReduceMean.cpp
   NN/GemmOp.cpp
   NN/AddOp.cpp
-  NN/FlattenOp.cpp
-  NN/SqueezeOp.cpp
-  NN/ConcatOp.cpp
+  NN/Flatten.cpp
+  NN/ElementwiseOp.cpp
+  NN/Squeeze.cpp
+  NN/Concat.cpp
   NN/BinaryOps.cpp
   NN/ArgmaxOp.cpp
 
