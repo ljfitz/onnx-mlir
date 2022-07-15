@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- Softmax.cpp - Softmax Op ---------------------------===//
+//===------------------- ArgMax.cpp - ArgMax Op ---------------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
