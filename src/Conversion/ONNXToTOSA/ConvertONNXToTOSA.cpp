@@ -32,6 +32,8 @@ void populateONNXToTOSAConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(patterns, typeConverter, ctx);
+  // Tensor
+  populateLoweringONNXArgMaxOpToTOSAPattern(patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect

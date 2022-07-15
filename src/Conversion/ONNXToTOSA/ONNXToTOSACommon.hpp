@@ -44,4 +44,8 @@ using TOSAOp = typename TOSADialectOp<Op>::Op;
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToTOSAPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+// `Tensor` directory methods:
+void populateLoweringONNXArgMaxOpToTOSAPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 } // namespace onnx_mlir
