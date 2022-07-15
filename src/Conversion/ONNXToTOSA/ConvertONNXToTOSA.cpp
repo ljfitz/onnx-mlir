@@ -12,54 +12,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Tosa/IR/TosaOps.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Pass/Passes.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-// This defines a template to construct ops whose legalizations are
-// specialized.
-template <typename OnnxOpT>
-class ConvertOnnxOp : public OpConversionPattern<OnnxOpT> {
-public:
-  using OpConversionPattern<OnnxOpT>::OpConversionPattern;
-  using OpAdaptor = typename OnnxOpT::Adaptor;
-  LogicalResult matchAndRewrite(OnnxOpT op, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override;
-};
+inline bool isa_tosa_signed_int(Type type) {
+  IntegerType intType = type.dyn_cast<IntegerType>();
+  std::set<unsigned> intWidth{8, 16, 32, 48, 64};
+  return intType && (intWidth.find(intType.getWidth()) != intWidth.end());
+}
 
-template <>
-LogicalResult ConvertOnnxOp<ONNXReluOp>::matchAndRewrite(ONNXReluOp op,
-    OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const {
-  Value input = adaptor.X();
-  auto inputTy = input.getType().dyn_cast<TensorType>();
+inline bool isa_tosa_float(Type type) {
+  return type.isa<BFloat16Type, Float16Type, Float32Type>();
+}
 
-  if (!inputTy)
-    return op.emitError("Only Tensor types supported in TOSA");
-
-  if (!inputTy.getElementType().isa<FloatType>()) {
-    return op.emitError(
-        "Only floating-point datatype legalization currently supported");
-  }
-
-  // Rescale the clampIn for quantized types. TBD
-  // Maps to tosa.clamp which has both int and fp limits.
-  Value clampIn = input;
-
-  rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), clampIn,
-      rewriter.getI64IntegerAttr(0),
-      rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
-      rewriter.getF32FloatAttr(0.0f),
-      rewriter.getF32FloatAttr(std::numeric_limits<float>::max()));
-  return success();
+void populateONNXToTOSAConversionPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  // Math
+  populateLoweringONNXElementwiseOpToTOSAPattern(patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -79,24 +51,37 @@ struct FrontendToTosaLoweringPass
 };
 
 void FrontendToTosaLoweringPass::runOnOperation() {
+  ModuleOp module = getOperation();
+  // Define final conversion target
   MLIRContext *context = &getContext();
   RewritePatternSet patterns(context);
   ConversionTarget target(*context);
 
+  // We use the type converter to legalize types before any conversion patterns
+  // are executed. This ensures that we do not need to trigger separate
+  // conversion failures.
   TypeConverter typeConverter;
-  typeConverter.addConversion([](Type type) { return type; });
+  typeConverter.addConversion([](Type type) -> Optional<Type> {
+    if (isa_tosa_signed_int(type) || isa_tosa_float(type))
+      return type;
+    return llvm::None;
+  });
+  typeConverter.addConversion([](TensorType type) -> Optional<Type> {
+    if (isa_tosa_signed_int(type.getElementType()) ||
+        isa_tosa_float(type.getElementType()))
+      return type;
+    return llvm::None;
+  });
 
+  // Define legal dialects and operations
   target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
 
-#define INSERT_ONNXOP_PATTERN(OnnxOp)                                          \
-  target.addIllegalOp<OnnxOp>();                                               \
-  patterns.add<ConvertOnnxOp<OnnxOp>>(typeConverter, context);
-  INSERT_ONNXOP_PATTERN(ONNXReluOp);
-#undef INSERT_ONNXOP_PATTERN
+  // Define patterns
+  populateONNXToTOSAConversionPattern(patterns, typeConverter, context);
 
-  if (failed(
-          applyPartialConversion(getOperation(), target, std::move(patterns))))
+  if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
+  }
 }
 
 std::unique_ptr<Pass> createConvertONNXToTOSAPass() {
