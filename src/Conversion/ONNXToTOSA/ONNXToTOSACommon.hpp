@@ -13,7 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Quant/QuantTypes.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -43,5 +45,5 @@ using TOSAOp = typename TOSADialectOp<Op>::Op;
 
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToTOSAPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 } // namespace onnx_mlir

@@ -18,20 +18,23 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-inline bool isa_tosa_signed_int(Type type) {
+static bool isSignedInt(Type type) {
   IntegerType intType = type.dyn_cast<IntegerType>();
   std::set<unsigned> intWidth{8, 16, 32, 48, 64};
-  return intType && (intWidth.find(intType.getWidth()) != intWidth.end());
+  return intType && intType.isSigned() &&
+         (intWidth.find(intType.getWidth()) != intWidth.end());
 }
 
-inline bool isa_tosa_float(Type type) {
+static bool isFloat(Type type) {
   return type.isa<BFloat16Type, Float16Type, Float32Type>();
 }
 
-void populateONNXToTOSAConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+void populateONNXToTOSAConversionPattern(ConversionTarget &target,
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
   // Math
-  populateLoweringONNXElementwiseOpToTOSAPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXElementwiseOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -62,13 +65,12 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
-    if (isa_tosa_signed_int(type) || isa_tosa_float(type))
+    if (isSignedInt(type) || isFloat(type))
       return type;
     return llvm::None;
   });
-  typeConverter.addConversion([](TensorType type) -> Optional<Type> {
-    if (isa_tosa_signed_int(type.getElementType()) ||
-        isa_tosa_float(type.getElementType()))
+  typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
+    if (typeConverter.isLegal(type.getElementType()))
       return type;
     return llvm::None;
   });
@@ -77,7 +79,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
 
   // Define patterns
-  populateONNXToTOSAConversionPattern(patterns, typeConverter, context);
+  populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);
 
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
