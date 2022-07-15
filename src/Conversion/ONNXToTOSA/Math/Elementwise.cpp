@@ -38,10 +38,14 @@ public:
   LogicalResult matchAndRewrite(ONNXReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    // Rescale the input for quantized types. TBD
-    // Maps to tosa.clamp which has both int and fp limits.
     Value input = adaptor.X();
 
+    // Rescale the input for quantized types. TBD
+    if (input.getType().isa<mlir::quant::QuantizedType>())
+      return rewriter.notifyMatchFailure(
+          op, "quantized types are not supported");
+
+    // Maps to `tosa.clamp` which has both int and fp limits.
     rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), input,
         rewriter.getI64IntegerAttr(0),
         rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
@@ -53,11 +57,13 @@ public:
 
 } // namespace
 
-void populateLoweringONNXElementwiseOpToTOSAPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA>(typeConverter, ctx);
 
 #define INSERT_UNARY_PATTERN(ONNXOp, TOSAOp)                                   \
+  target.addIllegalOp<ONNXOp>();                                               \
   patterns.insert<ONNXUnaryOpLoweringToTOSA<ONNXOp, TOSAOp>>(                  \
       typeConverter, ctx);
   INSERT_UNARY_PATTERN(ONNXNegOp, tosa::NegateOp)
