@@ -40,8 +40,8 @@ public:
 
     Value input = adaptor.X();
 
-    // Quantized types are not supported right now. Rescale the input for
-    // quantized types. (TBD)
+    // Quantized types are not supported right now (in type conversion).
+    // Once they are, the input should be rescaled for quantized types. (TBD)
     // Maps to `tosa.clamp` which has both int and fp limits.
     rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), input,
         rewriter.getI64IntegerAttr(0),
