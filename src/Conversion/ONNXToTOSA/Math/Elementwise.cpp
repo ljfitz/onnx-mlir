@@ -40,11 +40,8 @@ public:
 
     Value input = adaptor.X();
 
-    // Rescale the input for quantized types. TBD
-    if (input.getType().isa<mlir::quant::QuantizedType>())
-      return rewriter.notifyMatchFailure(
-          op, "quantized types are not supported");
-
+    // Quantized types are not supported right now. Rescale the input for
+    // quantized types. (TBD)
     // Maps to `tosa.clamp` which has both int and fp limits.
     rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), input,
         rewriter.getI64IntegerAttr(0),
