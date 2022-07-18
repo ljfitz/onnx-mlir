@@ -64,7 +64,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   // We use the type converter to legalize types before any conversion patterns
   // are executed. This ensures that we do not need to trigger separate
-  // conversion failures.
+  // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
     if (isSignedInt(type) || isFloat(type))
