@@ -4,213 +4,194 @@
 
 //===---- Gemm.cpp - Lowering Convolution Op ----===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022, Helprack LLC.
 //
 // ========================================================================
 //
-// This file lowers the ONNX Convolution Operators to Torch dialect.
+// This file lowers the ONNX Gemm Operation to Torch dialect.
 //
 //===-----------------------------------------------------------------===//
 
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Types.h"
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include <fstream>
-#include <iostream>
-#include <set>
+#include <numeric>
 #include <vector>
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
+/// ONNX Gemm operation
 
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Pass/Passes.hpp"
+/// General Matrix multiplication: https://en.wikipedia.org/wiki/
+/// Basic_Linear_Algebra_Subprograms#Level_3 A' = transpose(A) if
+/// transA else A' B' = transpose(B) if transB else B'. Compute
+/// Y = alpha * A' * B' + beta * C, where input tensor A has shape (M, K)
+/// or (K, M), input tensor B has shape (K, N) or (N, K), input tensor C
+/// is broadcastable to shape (M, N), and output tensor Y has shape (M, N).
+/// A will be transposed before doing the computation if attribute transA
+/// is non-zero, same for B and transB.
+///
+/// Attributes:
+/// Attribute	    MLIR Type	           Description
+///  alpha	::mlir::FloatAttr	32-bit float attribute
+///  beta	::mlir::FloatAttr	32-bit float attribute
+///  transA	::mlir::IntegerAttr	64-bit signed integer attribute
+///  transB	::mlir::IntegerAttr	64-bit signed integer attribute
 
-#include "mlir/Transforms/DialectConversion.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "llvm/ADT/StringExtras.h"
-
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
-
-#ifdef _WIN32
-#include <io.h>
-#endif
-
-/*
- * ONNX Gemm operation
-
- * “General Matrix multiplication:” “https://en.wikipedia.org/wiki/
- * Basic_Linear_Algebra_Subprograms#Level_3” “” “A’ = transpose(A) if 
- * transA else A” “” “B’ = transpose(B) if transB else B” “” “Compute 
- * Y = alpha * A’ * B’ + beta * C, where input tensor A has shape (M, K) 
- * or (K, M),” “input tensor B has shape (K, N) or (N, K), input tensor C 
- * is broadcastable to shape (M, N),” “and output tensor Y has shape (M, N). 
- * A will be transposed before doing the” “computation if attribute transA 
- * is non-zero, same for B and transB.
- *
- * Attributes:
- * Attribute	    MLIR Type	           Description
-    alpha	::mlir::FloatAttr	32-bit float attribute
-    beta	::mlir::FloatAttr	32-bit float attribute
-    transA	::mlir::IntegerAttr	64-bit signed integer attribute
-    transB	::mlir::IntegerAttr	64-bit signed integer attribute
-
- * Operands:
- * Operand Description
- *   A   tensor of 16-bit/32-bit/64-bit float values or 
- *       tensor of 32-bit/64-bit unsigned integer values or 
- *       tensor of 32-bit/64-bit signless integer values or 
- *       tensor of bfloat16 type values or memref of any type values.
- *
- *   B   tensor of 16-bit/32-bit/64-bit float values or
- *       tensor of 32-bit/64-bit unsigned integer values or
- *       tensor of 32-bit/64-bit signless integer values or
- *       tensor of bfloat16 type values or memref of any type values.
- *
- *   C   tensor of 16-bit/32-bit/64-bit float values or
- *       tensor of 32-bit/64-bit unsigned integer values or
- *       tensor of 32-bit/64-bit signless integer values or
- *       tensor of bfloat16 type values or memref of any type values.
- * Results:
- * Result Description
- *   Y   tensor of 16-bit/32-bit/64-bit float values or                     
- *       tensor of 32-bit/64-bit unsigned integer values or                 
- *       tensor of 32-bit/64-bit signless integer values or                 
- *       tensor of bfloat16 type values or memref of any type values.
- */
+/// Operands:
+/// Operand Description
+///   A   tensor of 16-bit/32-bit/64-bit float values or
+///       tensor of 32-bit/64-bit unsigned integer values or
+///       tensor of 32-bit/64-bit signless integer values or
+///       tensor of bfloat16 type values or memref of any type values.
+///
+///   B   tensor of 16-bit/32-bit/64-bit float values or
+///       tensor of 32-bit/64-bit unsigned integer values or
+///       tensor of 32-bit/64-bit signless integer values or
+///       tensor of bfloat16 type values or memref of any type values.
+///
+///   C   tensor of 16-bit/32-bit/64-bit float values or
+///       tensor of 32-bit/64-bit unsigned integer values or
+///       tensor of 32-bit/64-bit signless integer values or
+///       tensor of bfloat16 type values or memref of any type values.
+/// Results:
+/// Result Description
+///   Y   tensor of 16-bit/32-bit/64-bit float values or
+///       tensor of 32-bit/64-bit unsigned integer values or
+///       tensor of 32-bit/64-bit signless integer values or
+///       tensor of bfloat16 type values or memref of any type values.
 
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-struct ONNXGemmOpToTorchLowering : public ConversionPattern {
-  ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
+class ONNXGemmOpToTorchLowering : public OpConversionPattern<ONNXGemmOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+  Value getFloatValue(mlir::FloatAttr val, ConversionPatternRewriter &rewriter,
+      Location loc) const {
+    auto fVal =
+        FloatAttr::get(rewriter.getF64Type(), val.getValue().convertToFloat());
+    return rewriter.create<ConstantFloatOp>(loc, fVal);
+  }
 
-    auto loc = op->getLoc();
-    ONNXGemmOpAdaptor adaptor(operands);
-    ONNXGemmOp op1 = llvm::dyn_cast<ONNXGemmOp>(op);
+  int getRank(Value operand) const {
+    auto operandType = operand.getType().cast<TensorType>();
+    ArrayRef<int64_t> operandShape = operandType.getShape();
+    return operandShape.size();
+  }
 
-    mlir::MLIRContext *context = op1.getContext();
+  SmallVector<int64_t, 4> getTransposedShape2D(ShapedType operandType) const {
+    ArrayRef<int64_t> operandShape = operandType.getShape();
 
-    Value a = op1.A(); // ONNX operands
-    Value b = op1.B(); // ONNX operands
-    Value c = op1.C(); // ONNX operands
+    SmallVector<int64_t, 4> transposedShape;
+    transposedShape.emplace_back(operandShape[1]);
+    transposedShape.emplace_back(operandShape[0]);
 
-    auto alpha = op1.alphaAttr();   // ::mlir::FloatAttr
-    auto beta = op1.betaAttr();     // ::mlir::FloatAttr
-    auto transA = op1.transAAttr(); // ::mlir::IntegerAttr
-    auto transB = op1.transBAttr(); // ::mlir::IntegerAttr
+    return transposedShape;
+  }
 
-    TensorType a_tensor_type = a.getType().cast<TensorType>();
-    TensorType b_tensor_type = b.getType().cast<TensorType>();
-    TensorType c_tensor_type = c.getType().cast<TensorType>();
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+  LogicalResult matchAndRewrite(ONNXGemmOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
 
-    auto ty = IntegerType::get(op1.getContext(), 64);
+    Location loc = op.getLoc();
+    MLIRContext *context = op.getContext();
 
-    auto zero = 0;
-    auto f0 = IntegerAttr::get(ty, zero);
-    Value f0v = rewriter.create<ConstantIntOp>(loc, f0);
+    Value A = op.A();
+    Value B = op.B();
+    Value C = op.C();
 
-    auto one = 1;
-    auto f1 = IntegerAttr::get(ty, one);
-    Value f1v = rewriter.create<ConstantIntOp>(loc, f1);
+    // TODO: `op.C()` can broadcast its shape. XTen does not expect broadcast
+    // so for now we arrange the broadcast here. When this is fixed in XTen we
+    // will remove the explicit broadcasting from here. The fix is only applied
+    // to constant ops and will not work in a generalized case.
 
-    auto aTy = Torch::ValueTensorType::get(
-        context, a_tensor_type.getShape(), a_tensor_type.getElementType());
-    auto bTy = Torch::ValueTensorType::get(
-        context, b_tensor_type.getShape(), b_tensor_type.getElementType());
-    auto cTy = Torch::ValueTensorType::get(
-        context, c_tensor_type.getShape(), c_tensor_type.getElementType());
+    if (C.getDefiningOp<ONNXConstantOp>() &&
+        C.getDefiningOp()->hasAttr("value")) {
+      TensorType cTensorOp =
+          C.getDefiningOp()->getAttr("value").getType().cast<TensorType>();
+      ArrayRef<int64_t> cTensorOpShape = cTensorOp.getShape();
+      Type cTensorOpType = cTensorOp.getElementType();
 
-    auto att = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, aTy, a);
-    auto btt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, bTy, b);
-    auto ctt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, cTy, c);
+      TensorType resultOp = op->getResult(0).getType().cast<TensorType>();
+      ArrayRef<int64_t> resultOpShape = resultOp.getShape();
+      Type resultOpType = resultOp.getElementType();
 
-    auto neg_slope = alpha.getValue();
-    auto f3 = 
-	FloatAttr::get(rewriter.getF64Type(), neg_slope.convertToFloat());
-    Value alpha3v = rewriter.create<ConstantFloatOp>(loc, f3);
+      int cShapeElements = std::accumulate(cTensorOpShape.begin(),
+          cTensorOpShape.end(), 1, std::multiplies<int>());
+      int resultOpShapeElements = std::accumulate(resultOpShape.begin(),
+          resultOpShape.end(), 1, std::multiplies<int>());
 
-    neg_slope = beta.getValue();
-    f3 = FloatAttr::get(rewriter.getF64Type(), neg_slope.convertToFloat());
-    Value beta3v = rewriter.create<ConstantFloatOp>(loc, f3);
+      assert((cShapeElements == resultOpShapeElements) &&
+             "C and result tensor shapes do not match");
+      assert((cTensorOpType == resultOpType) &&
+             "C and result tensor types do not match");
+    }
 
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-        op_tensor_type.getShape(), op_tensor_type.getElementType());
+    // Transpose A and B. Transpose on Torch is only 2d or less.
+    if (!(getRank(A) == 2 && getRank(B) == 2 && getRank(C) <= 2))
+      return op->emitError("Gemm only supports rank 2 tensors");
 
-    // Transpose the A and B.
-    Value transposeAVal, transposeBVal;
-    if (transA)
-      transposeAVal =
-          rewriter.create<AtenTransposeIntOp>(loc, resultTy, att, f0v, f1v);
-    else
-      transposeAVal = att;
+    auto aShapedType = A.getType().dyn_cast<ShapedType>();
+    auto bShapedType = B.getType().dyn_cast<ShapedType>();
+    int64_t transA = adaptor.transA();
+    ::mlir::Type transposeAType =
+        (transA != 0)
+            ? Torch::ValueTensorType::get(context,
+                  ArrayRef<int64_t>(getTransposedShape2D(aShapedType)),
+                  aShapedType.getElementType())
+            : adaptor.A().getType();
+    int64_t transB = adaptor.transB();
+    mlir::Type transposeBType =
+        (transB != 0)
+            ? Torch::ValueTensorType::get(context,
+                  ArrayRef<int64_t>(getTransposedShape2D(bShapedType)),
+                  bShapedType.getElementType())
+            : adaptor.B().getType();
 
-    if (transB)
-      transposeBVal =
-          rewriter.create<AtenTransposeIntOp>(loc, resultTy, btt, f0v, f1v);
-    else
-      transposeBVal = btt;
+    Value transposeAVal = (transA != 0) ? rewriter.create<AtenTOp>(
+                                              loc, transposeAType, adaptor.A())
+                                        : adaptor.A();
+    Value transposeBVal = (transB != 0) ? rewriter.create<AtenTOp>(
+                                              loc, transposeBType, adaptor.B())
+                                        : adaptor.B();
 
-    // Compute Y = alpha * A’ * B’ + beta * C
-    // Scalar multiplication with alpha(alpha * A’) 
+    // Compute Y = alpha * A' * B' + beta * C
+    // Scalar multiplication with alpha(alpha * A')
     // and beta(beta * C) values.
+    FloatAttr alpha = adaptor.alphaAttr();
     Value alphaMulResult = NULL, betaMulResult = NULL;
-    if (alpha)
+    if (alpha && alpha.getValueAsDouble() != 1.) {
+      Value alpha3v = getFloatValue(alpha, rewriter, loc);
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
-          loc, resultTy, transposeAVal, alpha3v);
+          loc, transposeAType, transposeAVal, alpha3v);
+    }
 
-    if (beta)
-      betaMulResult =
-          rewriter.create<AtenMulScalarOp>(loc, resultTy, ctt, beta3v);
+    ::mlir::FloatAttr beta = adaptor.betaAttr();
+    if (beta && beta.getValueAsDouble() != 1.) {
+      Value beta3v = getFloatValue(beta, rewriter, loc);
+      betaMulResult = rewriter.create<AtenMulScalarOp>(
+          loc, adaptor.C().getType(), adaptor.C(), beta3v);
+    }
 
-
-    // Bmm Operation ((alpha * A’) * B’)
-    Value bmmValue;
+    // Bmm Operation ((alpha * A') * B')
+    Value mmValue;
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (alphaMulResult)
-      bmmValue = rewriter.create<AtenBmmOp>(
-          loc, resultTy, alphaMulResult, transposeBVal);
+      mmValue = rewriter.create<AtenMmOp>(
+          loc, resultType, alphaMulResult, transposeBVal);
     else
-      bmmValue = rewriter.create<AtenBmmOp>(
-          loc, resultTy, transposeAVal, transposeBVal);
+      mmValue = rewriter.create<AtenMmOp>(
+          loc, resultType, transposeAVal, transposeBVal);
 
-    // Addition ((alpha * A’ * B’) + (beta * C))
-    Value addValue;
+    // Addition ((alpha * A' * B') + (beta * C))
+    Value iOne = getIntValue(1, rewriter, context, loc);
     if (betaMulResult)
-      addValue =
-          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue,
-			  betaMulResult, f1v);
+      rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+          op, resultType, mmValue, betaMulResult, iOne);
     else
-      addValue =
-          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue,
-			  transposeBVal, f1v);
-
-    Value result = addValue;
-
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, resultTy, result);
-
+      rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+          op, resultType, mmValue, adaptor.C(), iOne);
     return success();
   }
 };
