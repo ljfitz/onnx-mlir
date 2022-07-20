@@ -39,7 +39,7 @@ add_onnx_mlir_library(OMONNXToTorch
   TorchMLIRInitAll
   TorchMLIRTorchConversionDialect
   TorchMLIRTorchPasses
-  MLIRMemRefTransforms
+  #MLIRMemRefTransforms
   #PerfectHash.cpp
   #ControlFlow/Loop.cpp
   #ControlFlow/Scan.cpp
