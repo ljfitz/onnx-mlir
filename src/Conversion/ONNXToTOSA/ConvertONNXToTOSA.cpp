@@ -99,7 +99,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
     signalPassFailure();
 }
 
-std::unique_ptr<Pass> createConvertONNXToTOSAPass() {
+std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass() {
   return std::make_unique<FrontendToTosaLoweringPass>();
 }
 

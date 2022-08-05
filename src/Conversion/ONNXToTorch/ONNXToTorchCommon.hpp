@@ -121,5 +121,17 @@ void populateLoweringONNXToTorchElementwiseOpPattern(
 void populateLoweringONNXToTorchConcatOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
+void populateLoweringONNXToTorchAddOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchFlattenOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchSqueezeOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchBinaryOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 void populateLoweringONNXToTorchArgmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);

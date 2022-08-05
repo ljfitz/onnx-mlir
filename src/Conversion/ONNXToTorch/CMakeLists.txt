@@ -11,13 +11,11 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/LeakyRelu.cpp
   NN/MaxPoolSingleOut.cpp
   NN/PaddingOp.cpp
-  NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
   NN/SoftmaxOp.cpp
   NN/AddOp.cpp
   NN/Flatten.cpp
-  NN/ElementwiseOp.cpp
   NN/Squeeze.cpp
   NN/Concat.cpp
   NN/BinaryOps.cpp
@@ -27,7 +25,6 @@ add_onnx_mlir_library(OMONNXToTorch
   OMConstPropHelper
   OMONNXOps
   OMSupport
-  MLIRFunc
   MLIRFuncTransforms 
   OMONNXRewrite
   OMShapeInference
@@ -55,17 +52,6 @@ add_onnx_mlir_library(OMONNXToTorch
   #Math/Softmax.cpp
   #Math/TopK.cpp
   #ML/CategoryMapper.cpp
-  NN/Conv2D.cpp
-  NN/ConstOp.cpp
-  NN/LeakyReluOp.cpp
-  NN/MaxPoolSingleOutOp.cpp
-  NN/PaddingOp.cpp
-  NN/FlattenOp.cpp
-  NN/GlobalAveragePool.cpp
-  NN/ReduceMean.cpp
-  NN/Gemm.cpp
-  NN/SoftmaxOp.cpp
-  NN/ConcatOp.cpp
   #NN/CommonUtils.cpp
   #NN/Normalization.cpp
   #NN/Pooling.cpp

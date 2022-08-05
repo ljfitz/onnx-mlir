@@ -88,10 +88,6 @@ void initOMPasses(int optLevel) {
     return krnl::createConvertSeqToMemrefPass();
   });
 
-  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToKrnlPass(optLevel > 0);
-  });
-
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToTorchPass();
   });

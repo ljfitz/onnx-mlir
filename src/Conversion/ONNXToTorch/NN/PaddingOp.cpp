@@ -131,7 +131,7 @@ public:
       }
     }
 
-    TensorType data_tensor_type = data.getType().cast<TensorType>();
+    TensorType dataTensorType = data.getType().cast<TensorType>();
 
     auto dataType = Torch::ValueTensorType::get(
         context, dataTensorType.getShape(), dataTensorType.getElementType());

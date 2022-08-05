@@ -92,7 +92,7 @@ public:
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
     Value literal = rewriter.create<Torch::ValueTensorLiteralOp>(
-        loc, resultTy, value_attr_finalized);
+        loc, resultType, valueAttrFinalized);
 
     Value result = literal;
 

@@ -210,9 +210,6 @@ void setTargetArch(const std::string &arch) {
 
 void clearTargetArch() { march.clear(); }
 
-std::string getTargetArchOption() {
-  return (march != "") ? "--march=" + march : "";
-}
 
 // Support for CPU.
 void setTargetCPU(const std::string &cpu) {
@@ -406,12 +403,16 @@ void clearCompilerOption(const OptionKind kind) {
   }
 }
 
+static std::string getTargetArchOptions() {
+  return (march != "") ? "--march=" + march : "";
+}
+
 std::string getCompilerOption(const OptionKind kind) {
   switch (kind) {
   case OptionKind::TargetTriple:
     return getTargetTripleOption();
   case OptionKind::TargetArch:
-    return getTargetArchOption();
+    return getTargetArchOptions();
   case OptionKind::TargetCPU:
     return getTargetCPUOption();
   case OptionKind::TargetAccel:
