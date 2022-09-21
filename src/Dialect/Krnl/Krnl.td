@@ -30,6 +30,7 @@ def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
