@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 
@@ -59,6 +60,38 @@ public:
   }
 };
 
+class ONNXAddOpLoweringToTOSA : public OpConversionPattern<ONNXAddOp> {
+public:
+  using OpConversionPattern<ONNXAddOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXAddOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXAddOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    Value lhs = adaptor.A();
+    auto lhsType = lhs.getType().dyn_cast<TensorType>();
+
+    Value rhs = adaptor.B();
+    auto rhsType = rhs.getType().dyn_cast<TensorType>();
+
+    auto resultType = op.getResult().getType().dyn_cast<TensorType>();
+
+    if (!lhsType || !rhsType || !resultType) {
+      return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
+    }
+
+    Type resultElementType = resultType.getElementType();
+
+    if (!resultElementType.isIntOrFloat()) {
+      return rewriter.notifyMatchFailure(
+          op, "Only Int and Float are supported");
+    }
+
+    rewriter.replaceOpWithNewOp<tosa::AddOp>(op, op.getType(), lhs, rhs);
+
+    return success();
+  }
+};
+
 class ONNXReluOpLoweringToTOSA : public OpConversionPattern<ONNXReluOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -85,7 +118,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
-      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXAddOpLoweringToTOSA, ONNXFloorOpLoweringToTOSA,
+      ONNXReluOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
