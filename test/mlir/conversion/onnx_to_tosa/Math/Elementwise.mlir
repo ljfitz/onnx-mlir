@@ -51,3 +51,16 @@ func.func @test_sub(%arg0: tensor<10x10xf32>, %arg1: tensor<10x10xf32>) -> tenso
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.sub"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
 }
+
+func.func @test_leaky_relu(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.5 : f32} : (tensor<4x4xf32>) -> tensor<4x4xf32>
+  func.return %0 : tensor<4x4xf32>
+// CHECK-LABEL: test_leaky_relu
+// CHECK-DAG: %[[VAR0:.*]] = "tosa.const"() {value = dense<0.000000e+00> : tensor<1x1xf32>}
+// CHECK-DAG: %[[VAR1:.*]] = "tosa.const"() {value = dense<5.000000e-01> : tensor<1x1xf32>}
+// CHECK-DAG: %[[VAR2:.*]] = "tosa.mul"(%arg0, %[[VAR1]]) {shift = 0 : i32}
+// CHECK-DAG: %[[VAR3:.*]] = "tosa.greater_equal"(%arg0, %[[VAR0]])
+// CHECK: %[[VAR6:.*]] = "tosa.select"(%[[VAR3]], %arg0, %[[VAR2]])
+}
+
+

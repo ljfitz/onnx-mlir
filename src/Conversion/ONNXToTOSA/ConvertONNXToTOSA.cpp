@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 using namespace mlir;
 
@@ -23,6 +24,11 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
     MLIRContext *ctx) {
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXToTosaPadPattern(target, patterns, typeConverter, ctx);
+  populateLoweringONNXSoftmaxOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
 }
 
