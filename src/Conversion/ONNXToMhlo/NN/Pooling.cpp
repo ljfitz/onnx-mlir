@@ -138,7 +138,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
             DenseIntElementsAttr::get(
                 RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
                 flattenPaddings));
-    buildReduceBodyFor<PoolOp>(elemType, &reduce.body(), &rewriter);
+    buildReduceBodyFor<PoolOp>(elemType, &reduce.getBody(), &rewriter);
     rewriter.replaceOp(op, reduce->getResults());
     return success();
   }

@@ -364,7 +364,7 @@ The index returned is valid only if 'input' is in the dictionary described by G 
 
 Traits: MemRefsNormalizable
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: Pure (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -452,7 +452,7 @@ in the `value` dense/opaque element attribute.
 
 Traits: MemRefsNormalizable
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: Pure (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1217,7 +1217,7 @@ Compute the length of a string.
 
 Krnl operation that computes the length of a string.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: Pure (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1239,7 +1239,7 @@ Perform string comparison up to N bytes.
 
 Krnl operation that performs a string comparison up to N bytes.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: Pure (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1335,7 +1335,7 @@ corresponding dimension for target memref type.
 
 Traits: MemRefsNormalizable
 
-Interfaces: CastOpInterface, NoSideEffect (MemoryEffectOpInterface), ViewLikeOpInterface
+Interfaces: CastOpInterface, Pure (MemoryEffectOpInterface), ViewLikeOpInterface
 
 Effects: MemoryEffects::Effect{}
 

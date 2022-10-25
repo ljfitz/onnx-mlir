@@ -227,7 +227,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     //       the CPU specific transformations.
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,
-        /*target CPU*/ maccel.empty(), enableSimdDataLayout);
+        /*target CPU*/ false, enableSimdDataLayout);
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
