@@ -145,6 +145,6 @@ mlir::FloatAttr convertToIEEEDouble(mlir::FloatAttr attr) {
 void setLayerNameAttr(Operation* source, Operation *target){
   if(source == nullptr || target == nullptr)
     return;
-  if(source->hasAttr("onnx_node_name"))
-    target->setAttr("layer_name", source->getAttr("onnx_node_name"));
+  if(source->hasAttr("LayerName"))
+    target->setAttr("layer_name", source->getAttr("LayerName"));
 }
