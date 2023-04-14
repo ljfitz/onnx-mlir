@@ -23,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -55,8 +56,7 @@ Value createONNXConstFromFloatValue(PatternRewriter &rewriter,
     const Location &loc, ArrayRef<int64_t> shape, float floatValue) {
   DenseElementsAttr newConstantAttr = DenseElementsAttr::get(
       RankedTensorType::get(shape, rewriter.getF32Type()), {floatValue});
-  auto constOp =
-      createONNXConstantOpWithDenseAttr(rewriter, loc, newConstantAttr);
+  auto constOp = OnnxBuilder(rewriter, loc).constant(newConstantAttr);
   return constOp;
 }
 
