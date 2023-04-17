@@ -60,6 +60,7 @@ void LayerNameToLocationPass::runOnOperation() {
     else if (isa_and_present<ONNXDialect>(nestedOp->getDialect()) &&
              !isa<ONNXConstantOp>(nestedOp) &&
              !isa<ONNXEntryPointOp>(nestedOp)) {
+      llvm::errs() << "AAAAAAAAAAAAAAAAAA"  << *nestedOp;
       auto invalidName =
           StringAttr::get(context, invLocName + std::to_string(invLocSeq++));
       nameLoc = NameLoc::get(invalidName, loc);

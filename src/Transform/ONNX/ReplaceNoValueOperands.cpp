@@ -117,12 +117,43 @@ public:
   }
 };
 
+class ResizeReplaceNoValue : public OpRewritePattern<ONNXResizeOp> {
+public:
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp op, PatternRewriter &rewriter) const override {
+
+    auto xtype = llvm::cast<RankedTensorType>(op.X().getType());
+    auto roi = op.roi();
+    auto scales = op.scales();
+    auto sizes = op.sizes();
+    Location loc = op->getLoc();
+    if (isNotNoValue(roi) && isNotNoValue(scales) && isNotNoValue(sizes)) {
+      return rewriter.notifyMatchFailure(op, "has no NoValue operand");
+    }
+    if (!isNotNoValue(roi)) {
+        roi = createONNXConstFromFloatValue(rewriter, loc, xtype.getShape(), 0.0F);
+        op->setOperand(1, roi);
+    }
+    if (!isNotNoValue(scales)) {
+        scales = createONNXConstFromFloatValue(rewriter, loc, xtype.getShape(), 1.0F);
+        op->setOperand(2, scales);
+    }
+    if (!isNotNoValue(sizes)) {
+        auto result = llvm::cast<RankedTensorType>(op.getResult().getType());
+        sizes = createONNXConstFromFloatValue(rewriter, loc, result.getShape(), 1.0F);
+        op->setOperand(3, sizes);
+    }
+    return success();
+  }
+};
+
 void ReplaceNoValuePass::runOnOperation() {
   auto module = getOperation();
 
   MLIRContext *context = &getContext();
   RewritePatternSet patterns(context);
-  patterns.insert<Conv2DReplaceNoValue, GemmReplaceNoValue, PadReplaceNoValue>(
+  patterns.insert<Conv2DReplaceNoValue, GemmReplaceNoValue, PadReplaceNoValue, ResizeReplaceNoValue>(
       context);
 
   if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
