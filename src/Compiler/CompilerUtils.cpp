@@ -36,9 +36,6 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-
 #include <charconv>
 #include <regex>
 
@@ -46,9 +43,6 @@
 
 using namespace mlir;
 using namespace onnx_mlir;
-
-using namespace mlir::torch;
-using namespace mlir::torch::Torch;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
@@ -629,9 +623,6 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
-  context.getOrLoadDialect<mlir::torch::Torch::TorchDialect>();
-  context
-      .getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
 }
 
 namespace {
